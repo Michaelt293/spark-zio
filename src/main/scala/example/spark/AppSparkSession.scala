@@ -20,12 +20,18 @@ object AppSparkSession extends Serializable {
     val appSparkSession: AppSparkSession.Service[Any] =
       new AppSparkSession.Service[Any] {
         val sparkSession: Task[SparkSession] =
-          ZIO.effect(
+          ZIO.effect {
+            val conf =
+              new SparkConf()
+                .set("spark.ui.enabled", "false")
+                .set("spark.driver.host", "localhost")
+
             SparkSession.builder
+              .config(conf)
               .master("local")
               .appName("ZioAppLive")
               .getOrCreate()
-          )
+          }
       }
   }
 

@@ -34,7 +34,7 @@ class ZioAppSpec extends FlatSpec with Matchers {
       new DefaultRuntime {}.unsafeRun {
         runProgram(
           Map(
-            "/tmp/zio-test-csv" ->
+            "/tmp/zio-test.csv" ->
               File(
                 List(
                   Person("Michael", 18, "Student"),
@@ -49,15 +49,15 @@ class ZioAppSpec extends FlatSpec with Matchers {
 
     state.state shouldEqual
       Map(
-        "/tmp/zio-test-csv" -> File(
+        "/tmp/zio-test.csv" -> File(
           List(Person("Michael", 18, "Student"), Person("Peter", 38, "Chef")),
           FileType.Csv
         ),
-        "/tmp/zio-test-parquet" -> File(
+        "/tmp/zio-test.parquet" -> File(
           List(Person("Michael", 18, "Student"), Person("Peter", 38, "Chef")),
           FileType.Parquet
         ),
-        "/tmp/zio-test-summary" -> File(
+        "/tmp/zio-test_summary.parquet" -> File(
           List(PersonSummary("Michael", 18), PersonSummary("Peter", 38)),
           FileType.Parquet
         )

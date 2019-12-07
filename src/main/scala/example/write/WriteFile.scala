@@ -2,6 +2,7 @@ package example
 
 import frameless.TypedDataset
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.SaveMode
 import zio._
 
 trait WriteFile extends Serializable {
@@ -32,7 +33,7 @@ object WriteFile {
             implicit
             spark: SparkSession
         ): Task[Unit] =
-          ZIO.effect(typedDataset.write.parquet(path))
+          ZIO.effect(typedDataset.write.mode(SaveMode.Overwrite).parquet(path))
       }
   }
 
