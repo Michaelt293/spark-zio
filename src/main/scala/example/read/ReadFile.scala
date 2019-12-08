@@ -1,10 +1,9 @@
 package example
 
-import frameless.{TypedEncoder, TypedDataset}
-import frameless.cats.implicits._
-import org.apache.spark.sql.SparkSession
+import scala.reflect.ClassTag
+
+import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
 import zio._
-import zio.interop.catz._
 
 trait ReadFile extends Serializable {
   def readFile: ReadFile.Service[Any]
@@ -12,52 +11,48 @@ trait ReadFile extends Serializable {
 
 object ReadFile {
   trait Service[R] {
-    def readParquet[A](path: String)(
+    def readParquet[A](spark: SparkSession, path: String)(
         implicit
-        spark: SparkSession,
-        encoder: TypedEncoder[A]
-    ): RIO[R, TypedDataset[A]]
+        classTag: ClassTag[A]
+    ): RIO[R, Dataset[A]]
 
-    def readCsv[A](path: String)(
+    def readCsv[A](spark: SparkSession, path: String)(
         implicit
-        spark: SparkSession,
-        encoder: TypedEncoder[A]
-    ): RIO[R, TypedDataset[A]]
+        classTag: ClassTag[A]
+    ): RIO[R, Dataset[A]]
   }
 
-  def readParquet[A](path: String)(
+  def readParquet[A](spark: SparkSession, path: String)(
       implicit
-      spark: SparkSession,
-      encoder: TypedEncoder[A]
-  ): RIO[ReadFile, TypedDataset[A]] =
-    RIO.accessM(_.readFile.readParquet(path))
+      classTag: ClassTag[A]
+  ): RIO[ReadFile, Dataset[A]] =
+    RIO.accessM(_.readFile.readParquet(spark, path))
 
-  def readCsv[A](path: String)(
+  def readCsv[A](spark: SparkSession, path: String)(
       implicit
-      spark: SparkSession,
-      encoder: TypedEncoder[A]
-  ): RIO[ReadFile, TypedDataset[A]] =
-    RIO.accessM(_.readFile.readCsv(path))
+      classTag: ClassTag[A]
+  ): RIO[ReadFile, Dataset[A]] =
+    RIO.accessM(_.readFile.readCsv(spark, path))
 
   trait Live extends ReadFile {
     override def readFile: ReadFile.Service[Any] =
       new ReadFile.Service[Any] {
-        override def readParquet[A](path: String)(
+        override def readParquet[A](spark: SparkSession, path: String)(
             implicit
-            spark: SparkSession,
-            encoder: TypedEncoder[A]
-        ): RIO[Any, TypedDataset[A]] =
+            classTag: ClassTag[A]
+        ): RIO[Any, Dataset[A]] =
           ZIO.effect(
-            spark.read.parquet(path).unsafeTyped
+            spark.read
+              .parquet(path)
+              .as[A](Encoders.kryo[A])
           )
 
-        override def readCsv[A](path: String)(
+        override def readCsv[A](spark: SparkSession, path: String)(
             implicit
-            spark: SparkSession,
-            encoder: TypedEncoder[A]
-        ): RIO[Any, TypedDataset[A]] =
+            classTag: ClassTag[A]
+        ): RIO[Any, Dataset[A]] =
           ZIO.effect(
-            spark.read.csv(path).unsafeTyped
+            spark.read.csv(path).as[A](Encoders.kryo[A])
           )
       }
   }
@@ -66,17 +61,17 @@ object ReadFile {
 
   final case class TestReadFileService[R](ref: Ref[FileSystem])
       extends ReadFile.Service[R] {
-    override def readParquet[A](path: String)(
+    override def readParquet[A](spark: SparkSession, path: String)(
         implicit
-        spark: SparkSession,
-        encoder: TypedEncoder[A]
-    ): Task[TypedDataset[A]] = ref.get.flatMap(_.readParquet(path))
+        classTag: ClassTag[A]
+    ): Task[Dataset[A]] =
+      ref.get.flatMap(_.readParquet(spark, path))
 
-    override def readCsv[A](path: String)(
+    override def readCsv[A](spark: SparkSession, path: String)(
         implicit
-        spark: SparkSession,
-        encoder: TypedEncoder[A]
-    ): Task[TypedDataset[A]] = ref.get.flatMap(_.readCsv(path))
+        classTag: ClassTag[A]
+    ): Task[Dataset[A]] =
+      ref.get.flatMap(_.readCsv(spark, path))
   }
 
   object TestReadFile {

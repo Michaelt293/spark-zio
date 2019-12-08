@@ -1,20 +1,10 @@
 package example
 
-import frameless.cats.implicits._
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Encoders, SparkSession}
 import zio._
 import zio.console._
-import zio.interop.catz._
 
 object ZioApp extends App {
-
-  def run(args: List[String]) =
-    program
-      .provide(appEnv)
-      .foldM(
-        _ => putStrLn("Job failed!") *> ZIO.succeed(1),
-        _ => putStrLn("Job completed!") *> ZIO.succeed(0)
-      )
 
   type AppEnv =
     Console with ReadFile with WriteFile with AppSparkSession
@@ -26,38 +16,45 @@ object ZioApp extends App {
 
       val console: Console.Service[Any] = Console.Live.console
 
-      val appSparkSession: AppSparkSession.Service[Any] =
-        AppSparkSession.Live.appSparkSession
-
       val writeFile: WriteFile.Service[Any] =
         WriteFile.Live.writeFile
+
+      val appSparkSession: AppSparkSession.Service[Any] =
+        AppSparkSession.Live.appSparkSession
     }
 
-  case class Person(name: String, age: Int, job: String)
+  case class Person(name: String, age: Int, job: String) {
+    def toPersonSummary = PersonSummary(name, age)
+  }
 
   case class PersonSummary(name: String, age: Int)
 
-  val program =
+  val program: ZIO[AppEnv, Throwable, Unit] =
     for {
       _ <- putStrLn("Testing......")
-      implicit0(sparkSession: SparkSession) <- AppSparkSession.sparkSession
-      csvPath = "/tmp/zio-test.csv"
-      _ <- putStrLn(s"Reading from csv from$csvPath......")
-      csvData <- ReadFile.readCsv[Person](csvPath)
+      spark <- AppSparkSession.sparkSession
+      _ <- putStrLn(s"Creating Dataset......")
+      dataset = spark.createDataset(
+        List(Person("Michael", 18, "Student"), Person("Peter", 38, "Chef"))
+      )(Encoders.kryo[Person])
       parquetPath = "/tmp/zio-test.parquet"
       _ <- putStrLn(s"Writing parquet to $parquetPath......")
-      _ <- WriteFile.writeParquet(parquetPath, csvData)
-      _ <- putStrLn(s"Reading from parquet from$parquetPath......")
-      parquetData <- ReadFile.readParquet[Person](parquetPath)
+      _ <- WriteFile.writeParquet(spark, parquetPath, dataset)
+      _ <- putStrLn(s"Reading from parquet from $parquetPath......")
+      parquetData <- ReadFile.readParquet[Person](spark, parquetPath)
       summaryPath = "/tmp/zio-test_summary.parquet"
       _ <- putStrLn(s"Writing summary to $summaryPath......")
-      summary = parquetData.project[PersonSummary]
-      _ <- WriteFile.writeParquet(summaryPath, summary)
-      summaryData <- ReadFile.readParquet[PersonSummary](summaryPath)
-      // sample <- summaryData.take[Task](5) * causes error below
-      // _ <- ZIO.foreach(sample)(d => putStrLn(d.toString))
-      _ = sparkSession.stop()
+      summary = parquetData.map(_.toPersonSummary)(Encoders.kryo[PersonSummary])
+      _ <- WriteFile.writeParquet(spark, summaryPath, summary)
+      summaryData <- ReadFile.readParquet[PersonSummary](spark, summaryPath)
+      _ = spark.stop()
     } yield ()
-}
 
-// ERROR CodeGenerator: failed to compile: org.codehaus.commons.compiler.CompileException: File 'generated.java', Line 78, Column 11: No applicable constructor/method found for actual parameters "java.lang.String, org.apache.spark.unsafe.types.UTF8String"; candidates are: "example.ZioApp$PersonSummary(java.lang.String, long)"
+  def run(args: List[String]) =
+    program
+      .provide(appEnv)
+      .foldM(
+        _ => putStrLn("Job failed!") *> ZIO.succeed(1),
+        _ => putStrLn("Job completed!") *> ZIO.succeed(0)
+      )
+}

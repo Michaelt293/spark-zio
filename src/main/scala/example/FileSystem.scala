@@ -2,21 +2,21 @@ package example
 
 import java.io.IOException
 
-import frameless.{TypedEncoder, TypedDataset}
-import frameless.cats.implicits._
-import org.apache.spark.sql.SparkSession
+import scala.reflect.ClassTag
+
+import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
 import zio._
-import zio.interop.catz._
 
 final case class FileSystem(
     state: Map[String, File]
 ) {
-  def writeParquet[A](path: String, data: TypedDataset[A])(
-      implicit
-      spark: SparkSession
+  def writeParquet[A](
+      spark: SparkSession,
+      path: String,
+      data: Dataset[A]
   ): Task[FileSystem] =
-    data
-      .collect[Task]()
+    Task
+      .effect(data.collect())
       .map(
         d =>
           FileSystem(
@@ -24,34 +24,35 @@ final case class FileSystem(
           )
       )
 
-  private def read[A](path: String, fileType: FileType)(
+  private def read[A](spark: SparkSession, path: String, fileType: FileType)(
       implicit
-      spark: SparkSession,
-      typedEncoder: TypedEncoder[A]
-  ): Task[TypedDataset[A]] =
-    ZIO.effect(TypedDataset.create {
-      val f = state(path)
+      classTag: ClassTag[A]
+  ): Task[Dataset[A]] = {
+    val f = state(path)
 
-      if (f.fileType == fileType) f.data.map(_.asInstanceOf[A])
-      else
-        throw new IOException(
+    if (f.fileType == fileType)
+      Task.succeed(
+        spark.createDataset(f.data.map(_.asInstanceOf[A]))(Encoders.kryo[A])
+      )
+    else
+      Task.fail(
+        new IOException(
           s"Wrong file type: Found ${f.fileType}, expected $fileType"
         )
-    })
+      )
+  }
 
-  def readParquet[A](path: String)(
+  def readParquet[A](spark: SparkSession, path: String)(
       implicit
-      spark: SparkSession,
-      typedEncoder: TypedEncoder[A]
-  ): Task[TypedDataset[A]] =
-    read(path, FileType.Parquet)
+      classTag: ClassTag[A]
+  ): Task[Dataset[A]] =
+    read(spark, path, FileType.Parquet)
 
-  def readCsv[A](path: String)(
+  def readCsv[A](spark: SparkSession, path: String)(
       implicit
-      spark: SparkSession,
-      typedEncoder: TypedEncoder[A]
-  ): Task[TypedDataset[A]] =
-    read(path, FileType.Csv)
+      classTag: ClassTag[A]
+  ): Task[Dataset[A]] =
+    read(spark, path, FileType.Csv)
 }
 
 sealed trait FileType

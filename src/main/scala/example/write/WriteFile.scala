@@ -1,8 +1,6 @@
 package example
 
-import frameless.TypedDataset
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.{Dataset, SaveMode, SparkSession}
 import zio._
 
 trait WriteFile extends Serializable {
@@ -11,29 +9,29 @@ trait WriteFile extends Serializable {
 
 object WriteFile {
   trait Service[R] {
-    def writeParquet[A](path: String, typedDataset: TypedDataset[A])(
-        implicit
-        spark: SparkSession
+    def writeParquet[A](
+        spark: SparkSession,
+        path: String,
+        dataset: Dataset[A]
     ): RIO[R, Unit]
   }
 
-  def writeParquet[A](path: String, typedDataset: TypedDataset[A])(
-      implicit
-      spark: SparkSession
+  def writeParquet[A](
+      spark: SparkSession,
+      path: String,
+      dataset: Dataset[A]
   ): RIO[WriteFile, Unit] =
-    RIO.accessM(_.writeFile.writeParquet(path, typedDataset))
+    RIO.accessM(_.writeFile.writeParquet(spark, path, dataset))
 
   trait Live extends WriteFile {
     override def writeFile: WriteFile.Service[Any] =
       new WriteFile.Service[Any] {
         override def writeParquet[A](
+            spark: SparkSession,
             path: String,
-            typedDataset: TypedDataset[A]
-        )(
-            implicit
-            spark: SparkSession
+            dataset: Dataset[A]
         ): Task[Unit] =
-          ZIO.effect(typedDataset.write.mode(SaveMode.Overwrite).parquet(path))
+          ZIO.effect(dataset.write.mode(SaveMode.Overwrite).parquet(path))
       }
   }
 
@@ -41,13 +39,14 @@ object WriteFile {
 
   final case class TestWriteFileService[R](ref: Ref[FileSystem])
       extends WriteFile.Service[R] {
-    override def writeParquet[A](path: String, typedDataset: TypedDataset[A])(
-        implicit
-        spark: SparkSession
+    override def writeParquet[A](
+        spark: SparkSession,
+        path: String,
+        dataset: Dataset[A]
     ): Task[Unit] =
       for {
         state <- ref.get
-        data <- state.writeParquet(path, typedDataset)
+        data <- state.writeParquet(spark, path, dataset)
         _ <- ref.set(data)
       } yield ()
   }
