@@ -7,7 +7,7 @@ import example.ZioApp.{Person, PersonSummary}
 
 class ZioAppSpec extends FlatSpec with Matchers {
   "The ZIO program" should "read and write from/to the test filesystem" in {
-    def appEnv(ref: Ref[FileSystem]): ZioApp.AppEnv =
+    def appEnv(ref: Ref[FileSystemState]): ZioApp.AppEnv =
       new Console with ReadFile with WriteFile with AppSparkSession {
         val readFile: ReadFile.Service[Any] =
           ReadFile.TestReadFile(ref).readFile
@@ -22,15 +22,21 @@ class ZioAppSpec extends FlatSpec with Matchers {
         }
       }
 
-    def runProgram(data: Map[String, File]): Task[FileSystem] =
+    def runProgram(data: Map[String, File]): Task[FileSystemState] =
       for {
-        ref <- Ref.make(FileSystem(data))
+        fs <- FileSystemState.create(
+          Some(FileSystem.Posix),
+          Set("/tmp"),
+          Set("/tmp"),
+          data
+        )
+        ref <- Ref.make(fs)
         _ <- ZioApp.program
           .provide(appEnv(ref))
         state <- ref.get
       } yield state
 
-    val state: FileSystem =
+    val state: FileSystemState =
       new DefaultRuntime {}.unsafeRun {
         runProgram(
           Map(
