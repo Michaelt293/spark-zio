@@ -37,7 +37,7 @@ object WriteFile {
 
   object Live extends Live
 
-  final case class TestWriteFileService[R](ref: Ref[FileSystem])
+  final case class TestWriteFileService[R](ref: Ref[FileSystemState])
       extends WriteFile.Service[R] {
     override def writeParquet[A](
         spark: SparkSession,
@@ -52,7 +52,7 @@ object WriteFile {
   }
 
   object TestWriteFile {
-    def apply[A](ref: Ref[FileSystem]): WriteFile =
+    def apply[A](ref: Ref[FileSystemState]): WriteFile =
       new WriteFile {
         def writeFile: WriteFile.Service[Any] =
           TestWriteFileService[Any](ref)

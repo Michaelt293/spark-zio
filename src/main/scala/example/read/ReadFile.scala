@@ -59,7 +59,7 @@ object ReadFile {
 
   object Live extends Live
 
-  final case class TestReadFileService[R](ref: Ref[FileSystem])
+  final case class TestReadFileService[R](ref: Ref[FileSystemState])
       extends ReadFile.Service[R] {
     override def readParquet[A](spark: SparkSession, path: String)(
         implicit
@@ -75,7 +75,7 @@ object ReadFile {
   }
 
   object TestReadFile {
-    def apply[A](ref: Ref[FileSystem]): ReadFile =
+    def apply[A](ref: Ref[FileSystemState]): ReadFile =
       new ReadFile {
         def readFile: ReadFile.Service[Any] =
           TestReadFileService[Any](ref)

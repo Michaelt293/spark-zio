@@ -1,65 +1,53 @@
 package example
 
-import java.io.IOException
+import zio.IO
 
-import scala.reflect.ClassTag
+sealed abstract class FileSystem {
+  def validatePath(path: String): IO[IllegalArgumentException, Unit]
+}
 
-import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
-import zio._
-
-final case class FileSystem(
-    state: Map[String, File]
-) {
-  def writeParquet[A](
-      spark: SparkSession,
-      path: String,
-      data: Dataset[A]
-  ): Task[FileSystem] =
-    Task
-      .effect(data.collect())
-      .map(
-        d =>
-          FileSystem(
-            state + (path -> File(d.toList, FileType.Parquet))
-          )
-      )
-
-  private def read[A](spark: SparkSession, path: String, fileType: FileType)(
-      implicit
-      classTag: ClassTag[A]
-  ): Task[Dataset[A]] = {
-    val f = state(path)
-
-    if (f.fileType == fileType)
-      Task.succeed(
-        spark.createDataset(f.data.map(_.asInstanceOf[A]))(Encoders.kryo[A])
-      )
-    else
-      Task.fail(
-        new IOException(
-          s"Wrong file type: Found ${f.fileType}, expected $fileType"
+object FileSystem {
+  final case object GS extends FileSystem {
+    override def validatePath(
+        path: String
+    ): IO[IllegalArgumentException, Unit] =
+      if (path.startsWith("gs://")) IO.succeed(())
+      else
+        IO.fail(
+          new IllegalArgumentException("Path does not start with \"gs://\"")
         )
-      )
+  }
+  final case object S3 extends FileSystem {
+    override def validatePath(
+        path: String
+    ): IO[IllegalArgumentException, Unit] =
+      if (path.startsWith("s3://") || path.startsWith("s3a://")) IO.succeed(())
+      else
+        IO.fail(
+          new IllegalArgumentException(
+            "Path does not start with \"s3://\" or \"s3a://\""
+          )
+        )
+  }
+  final case object Hdfs extends FileSystem {
+    override def validatePath(
+        path: String
+    ): IO[IllegalArgumentException, Unit] =
+      if (path.startsWith("hdfs://")) IO.succeed(())
+      else
+        IO.fail(
+          new IllegalArgumentException("Path does not start with \"hdfs://\"")
+        )
   }
 
-  def readParquet[A](spark: SparkSession, path: String)(
-      implicit
-      classTag: ClassTag[A]
-  ): Task[Dataset[A]] =
-    read(spark, path, FileType.Parquet)
-
-  def readCsv[A](spark: SparkSession, path: String)(
-      implicit
-      classTag: ClassTag[A]
-  ): Task[Dataset[A]] =
-    read(spark, path, FileType.Csv)
+  final case object Posix extends FileSystem {
+    override def validatePath(
+        path: String
+    ): IO[IllegalArgumentException, Unit] =
+      if (path.startsWith("/")) IO.succeed(())
+      else
+        IO.fail(
+          new IllegalArgumentException("Path does not start with \"/\"")
+        )
+  }
 }
-
-sealed trait FileType
-
-object FileType {
-  final case object Csv extends FileType
-  final case object Parquet extends FileType
-}
-
-final case class File(data: List[Any], fileType: FileType)
