@@ -7,9 +7,9 @@ import zio._
 
 import example.FileSystemState
 
-final case class TestWriteParquetService[R](ref: Ref[FileSystemState])
-    extends WriteParquet.Service[R] {
-  override def writeParquet[A](
+final case class TestWriteParquetService(ref: Ref[FileSystemState])
+    extends WriteParquet.Service {
+  def writeParquet[A](
       spark: SparkSession,
       path: String,
       dataset: Dataset[A]
@@ -22,9 +22,8 @@ final case class TestWriteParquetService[R](ref: Ref[FileSystemState])
 }
 
 object TestWriteParquet {
-  def apply[A](ref: Ref[FileSystemState]): WriteParquet =
-    new WriteParquet {
-      def writeParquet: WriteParquet.Service[Any] =
-        TestWriteParquetService[Any](ref)
-    }
+  def apply[A](
+      ref: Ref[FileSystemState]
+  ): ZLayer.NoDeps[Nothing, WriteParquet.WriteParquet] =
+    ZLayer.succeed(TestWriteParquetService(ref))
 }

@@ -9,26 +9,13 @@ import example.write._
 
 object ZioApp extends App {
 
-  type AppEnv =
-    Console with ReadParquet with ReadCsv with WriteParquet with AppSparkSession
+  type AppEnv = ReadParquet.ReadParquet
+    with ReadCsv.ReadCsv
+    with WriteParquet.WriteParquet
+    with AppSparkSession.AppSparkSession
 
-  val appEnv: AppEnv =
-    new Console with ReadParquet with ReadCsv with WriteParquet
-    with AppSparkSession {
-      val console: Console.Service[Any] = Console.Live.console
-
-      val readParquet: ReadParquet.Service[Any] =
-        ReadParquet.Live.readParquet
-
-      val readCsv: ReadCsv.Service[Any] =
-        ReadCsv.Live.readCsv
-
-      val writeParquet: WriteParquet.Service[Any] =
-        WriteParquet.Live.writeParquet
-
-      val appSparkSession: AppSparkSession.Service[Any] =
-        AppSparkSession.Live.appSparkSession
-    }
+  val appEnv: ZLayer[Any, Nothing, AppEnv] =
+    ReadParquet.live ++ ReadCsv.live ++ WriteParquet.live ++ AppSparkSession.live
 
   case class Person(name: String, age: Int, job: String) {
     def toPersonSummary = PersonSummary(name, age)
@@ -36,7 +23,7 @@ object ZioApp extends App {
 
   case class PersonSummary(name: String, age: Int)
 
-  val program: ZIO[AppEnv, Throwable, Unit] =
+  val program =
     for {
       _ <- putStrLn("Testing......")
       spark <- AppSparkSession.sparkSession
@@ -59,7 +46,7 @@ object ZioApp extends App {
 
   def run(args: List[String]) =
     program
-      .provide(appEnv)
+      .provideCustomLayer(appEnv)
       .foldM(
         _ => putStrLn("Job failed!") *> ZIO.succeed(1),
         _ => putStrLn("Job completed!") *> ZIO.succeed(0)

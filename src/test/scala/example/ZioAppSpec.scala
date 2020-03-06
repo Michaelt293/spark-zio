@@ -11,24 +11,8 @@ import example.ZioApp.{Person, PersonSummary}
 class ZioAppSpec extends FlatSpec with Matchers {
 
   "The ZIO program" should "read and write from/to the test filesystem" in {
-    def appEnv(ref: Ref[FileSystemState]): ZioApp.AppEnv =
-      new Console with ReadParquet with ReadCsv with WriteParquet
-      with AppSparkSession {
-        val console: Console.Service[Any] =
-          Console.Live.console
-
-        val readParquet: ReadParquet.Service[Any] =
-          TestReadParquet(ref).readParquet
-
-        val readCsv: ReadCsv.Service[Any] =
-          TestReadCsv(ref).readCsv
-
-        val writeParquet: WriteParquet.Service[Any] =
-          TestWriteParquet(ref).writeParquet
-
-        val appSparkSession: AppSparkSession.Service[Any] =
-          AppSparkSession.Test.appSparkSession
-      }
+    def appEnv(ref: Ref[FileSystemState]): ZLayer[Any, Nothing, ZioApp.AppEnv with Console] =
+      TestWriteParquet(ref) ++ TestReadCsv(ref) ++ TestReadParquet(ref) ++ AppSparkSession.test ++ Console.live
 
     def runProgram(data: Map[String, File]): Task[FileSystemState] =
       for {
@@ -39,8 +23,7 @@ class ZioAppSpec extends FlatSpec with Matchers {
           data
         )
         ref <- Ref.make(fs)
-        _ <- ZioApp.program
-          .provide(appEnv(ref))
+        _ <- ZioApp.program.provideLayer(appEnv(ref))
         state <- ref.get
       } yield state
 

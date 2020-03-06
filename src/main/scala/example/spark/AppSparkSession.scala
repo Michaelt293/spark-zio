@@ -4,57 +4,49 @@ import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import zio._
 
-trait AppSparkSession extends Serializable {
-  val appSparkSession: AppSparkSession.Service[Any]
-}
+object AppSparkSession {
+  type AppSparkSession = Has[Service]
 
-object AppSparkSession extends Serializable {
-  trait Service[R] {
-    val sparkSession: RIO[R, SparkSession]
+  trait Service {
+    val sparkSession: Task[SparkSession]
   }
 
   val sparkSession: RIO[AppSparkSession, SparkSession] =
-    RIO.accessM(_.appSparkSession.sparkSession)
+    RIO.accessM(_.get.sparkSession)
 
-  trait Live extends AppSparkSession {
-    val appSparkSession: AppSparkSession.Service[Any] =
-      new AppSparkSession.Service[Any] {
-        val sparkSession: Task[SparkSession] =
-          ZIO.effect {
-            val conf =
-              new SparkConf()
-                .set("spark.ui.enabled", "false")
-                .set("spark.driver.host", "localhost")
+  val live: ZLayer.NoDeps[Nothing, AppSparkSession] = ZLayer.succeed(
+    new Service {
+      val sparkSession: Task[SparkSession] =
+        ZIO.effect {
+          val conf =
+            new SparkConf()
+              .set("spark.ui.enabled", "false")
+              .set("spark.driver.host", "localhost")
 
-            SparkSession.builder
-              .config(conf)
-              .master("local")
-              .appName("ZioAppLive")
-              .getOrCreate()
-          }
-      }
-  }
+          SparkSession.builder
+            .config(conf)
+            .master("local")
+            .appName("ZioAppLive")
+            .getOrCreate()
+        }
+    }
+  )
 
-  object Live extends Live
+  val test: ZLayer.NoDeps[Nothing, AppSparkSession] = ZLayer.succeed(
+    new Service {
+      val sparkSession: Task[SparkSession] =
+        ZIO.effect {
+          val conf =
+            new SparkConf()
+              .set("spark.ui.enabled", "false")
+              .set("spark.driver.host", "localhost")
 
-  trait Test extends AppSparkSession {
-    val appSparkSession: AppSparkSession.Service[Any] =
-      new AppSparkSession.Service[Any] {
-        val sparkSession: Task[SparkSession] =
-          ZIO.effect {
-            val conf =
-              new SparkConf()
-                .set("spark.ui.enabled", "false")
-                .set("spark.driver.host", "localhost")
-
-            SparkSession.builder
-              .config(conf)
-              .master("local")
-              .appName("ZioAppTest")
-              .getOrCreate()
-          }
-      }
-  }
-
-  object Test extends Test
+          SparkSession.builder
+            .config(conf)
+            .master("local")
+            .appName("ZioAppTest")
+            .getOrCreate()
+        }
+    }
+  )
 }

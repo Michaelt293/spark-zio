@@ -22,9 +22,12 @@
 // }
 
 // object TestWriteCsv {
-//   def apply[A](ref: Ref[FileSystemState]): WriteCsv =
-//     new WriteCsv {
-//       def writeCsv: WriteCsv.Service[Any] =
-//         TestWriteCsvService[Any](ref)
+//   def apply[A](
+//       ref: Ref[FileSystemState]
+//   ): ZLayer.NoDeps[Nothing, WriteCsv.WriteCsv] = ZLayer.succeed(
+//     new WriteCsv.Service {
+//       def writeCsv: WriteCsv.Service =
+//         TestWriteCsvService(ref)
 //     }
+//   )
 // }
