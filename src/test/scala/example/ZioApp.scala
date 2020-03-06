@@ -4,20 +4,27 @@ import org.apache.spark.sql.{Encoders, SparkSession}
 import zio._
 import zio.console._
 
+import example.read._
+import example.write._
+
 object ZioApp extends App {
 
   type AppEnv =
-    Console with ReadFile with WriteFile with AppSparkSession
+    Console with ReadParquet with ReadCsv with WriteParquet with AppSparkSession
 
   val appEnv: AppEnv =
-    new Console with ReadFile with WriteFile with AppSparkSession {
-      val readFile: ReadFile.Service[Any] =
-        ReadFile.Live.readFile
-
+    new Console with ReadParquet with ReadCsv with WriteParquet
+    with AppSparkSession {
       val console: Console.Service[Any] = Console.Live.console
 
-      val writeFile: WriteFile.Service[Any] =
-        WriteFile.Live.writeFile
+      val readParquet: ReadParquet.Service[Any] =
+        ReadParquet.Live.readParquet
+
+      val readCsv: ReadCsv.Service[Any] =
+        ReadCsv.Live.readCsv
+
+      val writeParquet: WriteParquet.Service[Any] =
+        WriteParquet.Live.writeParquet
 
       val appSparkSession: AppSparkSession.Service[Any] =
         AppSparkSession.Live.appSparkSession
@@ -39,14 +46,14 @@ object ZioApp extends App {
       )(Encoders.kryo[Person])
       parquetPath = "/tmp/zio-test.parquet"
       _ <- putStrLn(s"Writing parquet to $parquetPath......")
-      _ <- WriteFile.writeParquet(spark, parquetPath, dataset)
+      _ <- WriteParquet.writeParquet(spark, parquetPath, dataset)
       _ <- putStrLn(s"Reading from parquet from $parquetPath......")
-      parquetData <- ReadFile.readParquet[Person](spark, parquetPath)
+      parquetData <- ReadParquet.readParquet[Person](spark, parquetPath)
       summaryPath = "/tmp/zio-test_summary.parquet"
       _ <- putStrLn(s"Writing summary to $summaryPath......")
       summary = parquetData.map(_.toPersonSummary)(Encoders.kryo[PersonSummary])
-      _ <- WriteFile.writeParquet(spark, summaryPath, summary)
-      summaryData <- ReadFile.readParquet[PersonSummary](spark, summaryPath)
+      _ <- WriteParquet.writeParquet(spark, summaryPath, summary)
+      summaryData <- ReadParquet.readParquet[PersonSummary](spark, summaryPath)
       _ = spark.stop()
     } yield ()
 

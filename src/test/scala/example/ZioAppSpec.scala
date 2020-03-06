@@ -3,20 +3,28 @@ package example
 import org.scalatest._
 import zio._
 import zio.console._
+
+import example.read._
+import example.write._
 import example.ZioApp.{Person, PersonSummary}
 
 class ZioAppSpec extends FlatSpec with Matchers {
 
   "The ZIO program" should "read and write from/to the test filesystem" in {
     def appEnv(ref: Ref[FileSystemState]): ZioApp.AppEnv =
-      new Console with ReadFile with WriteFile with AppSparkSession {
-        val readFile: ReadFile.Service[Any] =
-          ReadFile.TestReadFile(ref).readFile
+      new Console with ReadParquet with ReadCsv with WriteParquet
+      with AppSparkSession {
+        val console: Console.Service[Any] =
+          Console.Live.console
 
-        val console: Console.Service[Any] = Console.Live.console
+        val readParquet: ReadParquet.Service[Any] =
+          TestReadParquet(ref).readParquet
 
-        val writeFile: WriteFile.Service[Any] =
-          WriteFile.TestWriteFile(ref).writeFile
+        val readCsv: ReadCsv.Service[Any] =
+          TestReadCsv(ref).readCsv
+
+        val writeParquet: WriteParquet.Service[Any] =
+          TestWriteParquet(ref).writeParquet
 
         val appSparkSession: AppSparkSession.Service[Any] =
           AppSparkSession.Test.appSparkSession
