@@ -13,9 +13,12 @@ lazy val root = (project in file("."))
     libraryDependencies ++= List(
       zio,
       sparkSql,
-      scalaTest % Test
+      zioTest,
+      zioTestSbt
     )
   )
+
+testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
 
 // Uncomment the following for publishing to Sonatype.
 // See https://www.scala-sbt.org/1.x/docs/Using-Sonatype.html for more detail.
