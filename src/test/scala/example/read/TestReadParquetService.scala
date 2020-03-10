@@ -19,6 +19,6 @@ final case class TestReadParquetService(ref: Ref[FileSystemState])
 object TestReadParquet {
   def apply[A](
       ref: Ref[FileSystemState]
-  ): ZLayer.NoDeps[Nothing, ReadParquet.ReadParquet] =
+  ): ZLayer.NoDeps[Nothing, ReadParquet] =
     ZLayer.succeed(TestReadParquetService(ref))
 }

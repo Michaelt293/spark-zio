@@ -6,7 +6,6 @@ import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
 import zio._
 
 object ReadCsv {
-  type ReadCsv = Has[Service]
 
   trait Service {
     def readCsv[A](spark: SparkSession, path: String)(
@@ -14,12 +13,6 @@ object ReadCsv {
         classTag: ClassTag[A]
     ): Task[Dataset[A]]
   }
-
-  def readCsv[A](spark: SparkSession, path: String)( // TODO: move
-      implicit
-      classTag: ClassTag[A]
-  ): RIO[ReadCsv, Dataset[A]] =
-    RIO.accessM(_.get.readCsv(spark, path))
 
   val live: ZLayer.NoDeps[Nothing, ReadCsv] = ZLayer.succeed(
     new Service {

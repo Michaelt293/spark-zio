@@ -98,13 +98,13 @@ object FileSystemState {
       withWritePermissions: Set[String],
       withReadPermissions: Set[String],
       state: Map[String, File]
-  ) = {
-    def validate(path: String) =
+  ): IO[IllegalArgumentException, FileSystemState] = {
+    def validate(path: String): IO[IllegalArgumentException, Unit] =
       validatePath(fileSystem)(path)
 
     for {
-      _ <- ZIO.traverse(withWritePermissions)(validate)
-      _ <- ZIO.traverse(withReadPermissions)(validate)
+      _ <- ZIO.foreach_(withWritePermissions)(validate)
+      _ <- ZIO.foreach_(withReadPermissions)(validate)
     } yield
       new FileSystemState(
         fileSystem,

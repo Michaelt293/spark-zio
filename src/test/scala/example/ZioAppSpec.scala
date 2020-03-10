@@ -1,23 +1,47 @@
 package example
 
 import zio._
-import zio.console._
 import zio.duration._
 import zio.test._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test.environment._
+import org.apache.spark.SparkConf
+import org.apache.spark.sql.SparkSession
 
 import example.read._
+import example.spark._
 import example.write._
 import example.ZioApp.{Person, PersonSummary}
+import example.spark.SparkSessionBuilder
+import example.spark.SparkSessionBuilder.Service
 
 object ZioAppSpec extends DefaultRunnableSpec {
 
+  val testSessionBuilder: ZLayer.NoDeps[Nothing, SparkSessionBuilder] =
+    ZLayer.succeed(
+      new Service {
+        val sparkSessionBuilder: SparkSession.Builder = {
+          val conf =
+            new SparkConf()
+              .set("spark.ui.enabled", "false")
+              .set("spark.driver.host", "localhost")
+
+          SparkSession.builder
+            .config(conf)
+            .master("local")
+            .appName("ZioAppTest")
+        }
+      }
+    )
+
   def appEnv(
       ref: Ref[FileSystemState]
-  ): ZLayer[Any, Nothing, ZioApp.AppEnv] =
-    TestWriteParquet(ref) ++ TestReadCsv(ref) ++ TestReadParquet(ref) ++ AppSparkSession.test
+  ): ZLayer[Any, Throwable, ZioApp.AppEnv] =
+    TestWriteParquet(ref) ++
+      TestReadCsv(ref) ++
+      TestReadParquet(ref) ++
+      (testSessionBuilder >>> sparkSessionZLayer)
 
   val expectOutput = Map(
     "/tmp/zio-test.parquet" -> File(

@@ -19,6 +19,6 @@ final case class TestReadCsvService(ref: Ref[FileSystemState])
 object TestReadCsv {
   def apply[A](
       ref: Ref[FileSystemState]
-  ): ZLayer.NoDeps[Nothing, ReadCsv.ReadCsv] =
+  ): ZLayer.NoDeps[Nothing, ReadCsv] =
     ZLayer.succeed(TestReadCsvService(ref))
 }
