@@ -9,7 +9,7 @@ package object spark {
   type AppSparkSession = Has[SparkSession]
 
   val sparkSessionZLayer
-  : ZLayer[SparkSessionBuilder, Throwable, AppSparkSession] =
+    : ZLayer[SparkSessionBuilder, Throwable, AppSparkSession] =
     ZLayer.fromManaged {
       ZManaged.make {
         ZIO.access[SparkSessionBuilder](_.get).flatMap { service =>
@@ -18,6 +18,6 @@ package object spark {
       }(sparkSession => Task.succeed(sparkSession.stop()))
     }
 
-  val sparkSession: RIO[Has[SparkSession], SparkSession] =
-    ZIO.access[Has[SparkSession]](_.get)
+  val sparkSession: RIO[AppSparkSession, SparkSession] =
+    ZIO.access[AppSparkSession](_.get)
 }
