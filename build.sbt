@@ -1,24 +1,22 @@
 import Dependencies._
 
-ThisBuild / scalaVersion := "2.12.8"
+ThisBuild / scalaVersion := "2.12.10"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.example"
 ThisBuild / organizationName := "example"
-
-addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 
 lazy val root = (project in file("."))
   .settings(
     name := "spark-zio",
     libraryDependencies ++= List(
       zio,
-      zioInteropCats,
-      framelessDataset,
-      framelessCats,
-      sparkSql
-    ),
-    libraryDependencies += scalaTest % Test
+      sparkSql,
+      zioTest,
+      zioTestSbt
+    )
   )
+
+testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
 
 // Uncomment the following for publishing to Sonatype.
 // See https://www.scala-sbt.org/1.x/docs/Using-Sonatype.html for more detail.

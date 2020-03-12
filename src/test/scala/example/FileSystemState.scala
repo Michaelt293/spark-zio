@@ -2,11 +2,10 @@ package example
 
 import java.io.IOException
 
-import frameless.{TypedEncoder, TypedDataset}
-import frameless.cats.implicits._
-import org.apache.spark.sql.SparkSession
+import scala.reflect.runtime.universe.TypeTag
+
+import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
 import zio._
-import zio.interop.catz._
 
 sealed abstract case class FileSystemState(
     fileSystem: Option[FileSystem],
@@ -17,12 +16,14 @@ sealed abstract case class FileSystemState(
   private def validatePath(path: String): IO[IllegalArgumentException, Unit] =
     FileSystemState.validatePath(fileSystem)(path)
 
-  def writeParquet[A](path: String, data: TypedDataset[A])(
-      implicit
-      spark: SparkSession
+  private def write[A](
+      spark: SparkSession,
+      path: String,
+      data: Dataset[A],
+      fileType: FileType
   ): Task[FileSystemState] = {
     val validatePermissions =
-      if (withWritePermissions.exists(p => !path.startsWith(p)))
+      if (withWritePermissions.exists(p => !path.startsWith(p))) // TODO: improve logic
         Task.fail(
           new IOException(
             s"Write permissions do not exist for $path"
@@ -34,27 +35,41 @@ sealed abstract case class FileSystemState(
     for {
       _ <- validatePath(path)
       _ <- validatePermissions
-      d <- data.collect[Task]()
+      d <- Task.effect(data.collect())
       state <- FileSystemState.create(
         fileSystem,
         withWritePermissions: Set[String],
         withReadPermissions: Set[String],
-        state + (path -> File(d.toList, FileType.Parquet))
+        state + (path -> File(d.toList, fileType))
       )
     } yield state
   }
 
-  private def read[A](path: String, fileType: FileType)(
-      implicit
+  def writeParquet[A](
       spark: SparkSession,
-      typedEncoder: TypedEncoder[A]
-  ): Task[TypedDataset[A]] = {
+      path: String,
+      data: Dataset[A]
+  ): Task[FileSystemState] =
+    write(spark, path, data, FileType.Parquet)
+
+  def writeCsv[A](
+      spark: SparkSession,
+      path: String,
+      data: Dataset[A]
+  ): Task[FileSystemState] =
+    write(spark, path, data, FileType.Csv)
+
+  private def read[A <: Product: TypeTag](
+      spark: SparkSession,
+      path: String,
+      fileType: FileType
+  ): Task[Dataset[A]] = {
     val file = ZIO.fromOption(state.get(path)).mapError { _ =>
       new IOException(s"Path does not exist $path")
     }
 
     val validatePermissions =
-      if (withReadPermissions.exists(p => !path.startsWith(p)))
+      if (withReadPermissions.exists(p => !path.startsWith(p))) // TODO: improve logic
         Task.fail(
           new IOException(
             s"Read permissions do not exist for $path"
@@ -65,7 +80,10 @@ sealed abstract case class FileSystemState(
 
     val readFile = file.flatMap { f =>
       if (f.fileType == fileType)
-        Task.effect(TypedDataset.create(f.data.map(_.asInstanceOf[A])))
+        Task.effect(
+          spark
+            .createDataset(f.data.map(_.asInstanceOf[A]))(Encoders.product[A])
+        )
       else
         Task.fail(
           new IOException(
@@ -77,19 +95,17 @@ sealed abstract case class FileSystemState(
     validatePath(path) *> validatePermissions *> readFile
   }
 
-  def readParquet[A](path: String)(
-      implicit
+  def readParquet[A <: Product: TypeTag](
       spark: SparkSession,
-      typedEncoder: TypedEncoder[A]
-  ): Task[TypedDataset[A]] =
-    read(path, FileType.Parquet)
+      path: String
+  ): Task[Dataset[A]] =
+    read(spark, path, FileType.Parquet)
 
-  def readCsv[A](path: String)(
-      implicit
+  def readCsv[A <: Product: TypeTag](
       spark: SparkSession,
-      typedEncoder: TypedEncoder[A]
-  ): Task[TypedDataset[A]] =
-    read(path, FileType.Csv)
+      path: String
+  ): Task[Dataset[A]] =
+    read(spark, path, FileType.Csv)
 }
 
 object FileSystemState {
@@ -98,12 +114,13 @@ object FileSystemState {
       withWritePermissions: Set[String],
       withReadPermissions: Set[String],
       state: Map[String, File]
-  ) = {
-    def validate(path: String) =
+  ): IO[IllegalArgumentException, FileSystemState] = {
+    def validate(path: String): IO[IllegalArgumentException, Unit] =
       validatePath(fileSystem)(path)
+
     for {
-      _ <- ZIO.traverse(withWritePermissions)(validate(_))
-      _ <- ZIO.traverse(withReadPermissions)(validate(_))
+      _ <- ZIO.foreach_(withWritePermissions)(validate)
+      _ <- ZIO.foreach_(withReadPermissions)(validate)
     } yield
       new FileSystemState(
         fileSystem,
