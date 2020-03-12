@@ -35,12 +35,11 @@ object ZioAppSpec extends DefaultRunnableSpec {
       }
     )
 
-  def appEnv(
-      ref: Ref[FileSystemState]
-  ): ZLayer[Any, Throwable, ZioApp.AppEnv] =
-    TestWriteParquet(ref) ++
+  def appEnv(ref: Ref[FileSystemState]): ZLayer[Any, Throwable, ZioApp.AppEnv] =
+    TestReadParquet(ref) ++
       TestReadCsv(ref) ++
-      TestReadParquet(ref) ++
+      TestWriteParquet(ref) ++
+      TestWriteCsv(ref) ++
       (testSessionBuilder >>> sparkSessionZLayer)
 
   val expectOutput = Map(
@@ -48,36 +47,40 @@ object ZioAppSpec extends DefaultRunnableSpec {
       List(Person("Michael", 18, "Student"), Person("Peter", 38, "Chef")),
       FileType.Parquet
     ),
-    "/tmp/zio-test_summary.parquet" -> File(
+    "/tmp/zio-test_summary.csv" -> File(
       List(PersonSummary("Michael", 18), PersonSummary("Peter", 38)),
-      FileType.Parquet
+      FileType.Csv
     )
   )
 
   val expectConsoleOutput = Vector(
-    s"Testing......${System.lineSeparator}",
-    s"Creating Dataset......${System.lineSeparator}",
-    s"Writing parquet to /tmp/zio-test.parquet......${System.lineSeparator}",
-    s"Reading from parquet from /tmp/zio-test.parquet......${System.lineSeparator}",
-    s"Writing summary to /tmp/zio-test_summary.parquet......${System.lineSeparator}"
+    "Testing......\n",
+    "Creating Dataset......\n",
+    "Writing parquet to /tmp/zio-test.parquet......\n",
+    "Reading from parquet from /tmp/zio-test.parquet......\n",
+    "Writing summary to /tmp/zio-test_summary.csv......\n",
+    "Printing summary to console......\n",
+    "PersonSummary(Michael,18)\n",
+    "PersonSummary(Peter,38)\n"
   )
 
-  def spec = suite("ZioAppSpec")(
-    testM("The ZIO program should read and write from/to the test filesystem") {
-      for {
-        fs <- FileSystemState.create(
-          Some(FileSystem.Posix),
-          Set("/tmp"),
-          Set("/tmp"),
-          Map.empty
-        )
-        ref <- Ref.make(fs)
-        _ <- ZioApp.program.provideCustomLayer(appEnv(ref))
-        state <- ref.get
-        consoleOutput <- TestConsole.output
-      } yield
-        assert(state.state)(equalTo(expectOutput)) &&
-          assert(consoleOutput)(equalTo(expectConsoleOutput))
-    } @@ timeout(10.seconds)
-  )
+  def spec: Spec[TestEnvironment, TestFailure[Throwable], TestSuccess] =
+    suite("ZioAppSpec")(
+      testM("The ZIO program should read and write from/to the test filesystem") {
+        for {
+          fs <- FileSystemState.create(
+            Some(FileSystem.Posix),
+            Set("/tmp"),
+            Set("/tmp"),
+            Map.empty
+          )
+          ref <- Ref.make(fs)
+          _ <- ZioApp.program.provideCustomLayer(appEnv(ref))
+          state <- ref.get
+          consoleOutput <- TestConsole.output
+        } yield
+          assert(state.state)(equalTo(expectOutput)) &&
+            assert(consoleOutput)(equalTo(expectConsoleOutput))
+      } @@ timeout(20.seconds)
+    )
 }

@@ -5,8 +5,6 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.example"
 ThisBuild / organizationName := "example"
 
-addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
-
 lazy val root = (project in file("."))
   .settings(
     name := "spark-zio",

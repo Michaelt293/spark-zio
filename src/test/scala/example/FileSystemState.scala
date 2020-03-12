@@ -2,7 +2,7 @@ package example
 
 import java.io.IOException
 
-import scala.reflect.ClassTag
+import scala.reflect.runtime.universe.TypeTag
 
 import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
 import zio._
@@ -16,10 +16,11 @@ sealed abstract case class FileSystemState(
   private def validatePath(path: String): IO[IllegalArgumentException, Unit] =
     FileSystemState.validatePath(fileSystem)(path)
 
-  def writeParquet[A](
+  private def write[A](
       spark: SparkSession,
       path: String,
-      data: Dataset[A]
+      data: Dataset[A],
+      fileType: FileType
   ): Task[FileSystemState] = {
     val validatePermissions =
       if (withWritePermissions.exists(p => !path.startsWith(p))) // TODO: improve logic
@@ -39,12 +40,26 @@ sealed abstract case class FileSystemState(
         fileSystem,
         withWritePermissions: Set[String],
         withReadPermissions: Set[String],
-        state + (path -> File(d.toList, FileType.Parquet))
+        state + (path -> File(d.toList, fileType))
       )
     } yield state
   }
 
-  private def read[A: ClassTag](
+  def writeParquet[A](
+      spark: SparkSession,
+      path: String,
+      data: Dataset[A]
+  ): Task[FileSystemState] =
+    write(spark, path, data, FileType.Parquet)
+
+  def writeCsv[A](
+      spark: SparkSession,
+      path: String,
+      data: Dataset[A]
+  ): Task[FileSystemState] =
+    write(spark, path, data, FileType.Csv)
+
+  private def read[A <: Product: TypeTag](
       spark: SparkSession,
       path: String,
       fileType: FileType
@@ -66,7 +81,8 @@ sealed abstract case class FileSystemState(
     val readFile = file.flatMap { f =>
       if (f.fileType == fileType)
         Task.effect(
-          spark.createDataset(f.data.map(_.asInstanceOf[A]))(Encoders.kryo[A])
+          spark
+            .createDataset(f.data.map(_.asInstanceOf[A]))(Encoders.product[A])
         )
       else
         Task.fail(
@@ -79,13 +95,13 @@ sealed abstract case class FileSystemState(
     validatePath(path) *> validatePermissions *> readFile
   }
 
-  def readParquet[A: ClassTag](
+  def readParquet[A <: Product: TypeTag](
       spark: SparkSession,
       path: String
   ): Task[Dataset[A]] =
     read(spark, path, FileType.Parquet)
 
-  def readCsv[A: ClassTag](
+  def readCsv[A <: Product: TypeTag](
       spark: SparkSession,
       path: String
   ): Task[Dataset[A]] =

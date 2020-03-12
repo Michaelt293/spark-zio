@@ -20,7 +20,11 @@ object WriteCsv {
           path: String,
           dataset: Dataset[A]
       ): Task[Unit] =
-        ZIO.effect(dataset.write.mode(SaveMode.Overwrite).csv(path))
+        ZIO.effect(
+          dataset.write
+            .mode(SaveMode.Overwrite)
+            .option("header", "true")
+            .csv(path))
     }
   )
 }

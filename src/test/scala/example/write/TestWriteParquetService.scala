@@ -20,7 +20,7 @@ final case class TestWriteParquetService(ref: Ref[FileSystemState])
 }
 
 object TestWriteParquet {
-  def apply[A](
+  def apply(
       ref: Ref[FileSystemState]
   ): ZLayer.NoDeps[Nothing, WriteParquet] =
     ZLayer.succeed(TestWriteParquetService(ref))
