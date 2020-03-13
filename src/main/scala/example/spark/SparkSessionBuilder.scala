@@ -2,7 +2,7 @@ package example.spark
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
-import zio.ZLayer
+import zio.{Layer, ZLayer}
 
 object SparkSessionBuilder {
 
@@ -10,7 +10,7 @@ object SparkSessionBuilder {
     val sparkSessionBuilder: SparkSession.Builder
   }
 
-  val live: ZLayer.NoDeps[Nothing, SparkSessionBuilder] = ZLayer.succeed(
+  val live: Layer[Nothing, SparkSessionBuilder] = ZLayer.succeed(
     new Service {
       val sparkSessionBuilder: SparkSession.Builder = {
         val conf =

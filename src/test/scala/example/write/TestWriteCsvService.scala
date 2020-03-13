@@ -1,7 +1,7 @@
 package example.write
 
 import org.apache.spark.sql.{Dataset, SparkSession}
-import zio.{Ref, Task, ZLayer}
+import zio.{Layer, Ref, Task, ZLayer}
 
 import example.FileSystemState
 
@@ -22,6 +22,6 @@ final case class TestWriteCsvService(ref: Ref[FileSystemState])
 object TestWriteCsv {
   def apply(
       ref: Ref[FileSystemState]
-  ): ZLayer.NoDeps[Nothing, WriteCsv] =
+  ): Layer[Nothing, WriteCsv] =
     ZLayer.succeed(TestWriteCsvService(ref))
 }

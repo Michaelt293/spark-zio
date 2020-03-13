@@ -18,7 +18,7 @@ import example.spark.SparkSessionBuilder.Service
 
 object ZioAppSpec extends DefaultRunnableSpec {
 
-  val testSessionBuilder: ZLayer.NoDeps[Nothing, SparkSessionBuilder] =
+  val testSessionBuilder: Layer[Nothing, SparkSessionBuilder] =
     ZLayer.succeed(
       new Service {
         val sparkSessionBuilder: SparkSession.Builder = {
@@ -35,8 +35,7 @@ object ZioAppSpec extends DefaultRunnableSpec {
       }
     )
 
-  def appEnv(
-      ref: Ref[FileSystemState]): ZLayer.NoDeps[Throwable, ZioApp.AppEnv] =
+  def appEnv(ref: Ref[FileSystemState]): Layer[Throwable, ZioApp.AppEnv] =
     TestReadParquet(ref) ++
       TestReadCsv(ref) ++
       TestWriteParquet(ref) ++

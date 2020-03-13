@@ -3,7 +3,7 @@ package example.read
 import scala.reflect.runtime.universe.TypeTag
 
 import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
-import zio.{RIO, Task, ZLayer}
+import zio.{Layer, RIO, Task, ZLayer}
 
 object ReadParquet {
 
@@ -14,7 +14,7 @@ object ReadParquet {
     ): Task[Dataset[A]]
   }
 
-  val live: ZLayer.NoDeps[Nothing, ReadParquet] = ZLayer.succeed(
+  val live: Layer[Nothing, ReadParquet] = ZLayer.succeed(
     new Service {
       def readParquet[A <: Product](spark: SparkSession, path: String)(
           implicit
