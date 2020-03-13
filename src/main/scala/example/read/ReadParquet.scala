@@ -3,7 +3,7 @@ package example.read
 import scala.reflect.runtime.universe.TypeTag
 
 import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
-import zio._
+import zio.{RIO, Task, ZLayer}
 
 object ReadParquet {
 
@@ -20,7 +20,7 @@ object ReadParquet {
           implicit
           typeTag: TypeTag[A]
       ): RIO[Any, Dataset[A]] =
-        ZIO.effect(
+        RIO.effect(
           spark.read
             .parquet(path)
             .as[A](Encoders.product[A])

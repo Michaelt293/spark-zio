@@ -2,7 +2,7 @@ package example.spark
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
-import zio._
+import zio.ZLayer
 
 object SparkSessionBuilder {
 

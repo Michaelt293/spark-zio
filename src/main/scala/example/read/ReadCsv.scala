@@ -1,9 +1,8 @@
 package example.read
 
 import scala.reflect.runtime.universe.TypeTag
-
 import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
-import zio._
+import zio.{RIO, Task, ZLayer}
 
 object ReadCsv {
 
@@ -20,7 +19,7 @@ object ReadCsv {
           implicit
           typeTag: TypeTag[A]
       ): RIO[Any, Dataset[A]] =
-        ZIO.effect(
+        RIO.effect(
           spark.read
             .option("header", "true")
             .option("inferSchema", "true")

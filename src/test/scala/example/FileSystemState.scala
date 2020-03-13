@@ -5,7 +5,7 @@ import java.io.IOException
 import scala.reflect.runtime.universe.TypeTag
 
 import org.apache.spark.sql.{Dataset, Encoders, SparkSession}
-import zio._
+import zio.{IO, Task, ZIO}
 
 sealed abstract case class FileSystemState(
     fileSystem: Option[FileSystem],
@@ -64,9 +64,9 @@ sealed abstract case class FileSystemState(
       path: String,
       fileType: FileType
   ): Task[Dataset[A]] = {
-    val file = ZIO.fromOption(state.get(path)).mapError { _ =>
-      new IOException(s"Path does not exist $path")
-    }
+    val file = ZIO
+      .fromOption(state.get(path))
+      .orElseFail(new IOException(s"Path does not exist $path"))
 
     val validatePermissions =
       if (withReadPermissions.exists(p => !path.startsWith(p))) // TODO: improve logic

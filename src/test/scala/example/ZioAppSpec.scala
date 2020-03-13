@@ -35,14 +35,15 @@ object ZioAppSpec extends DefaultRunnableSpec {
       }
     )
 
-  def appEnv(ref: Ref[FileSystemState]): ZLayer[Any, Throwable, ZioApp.AppEnv] =
+  def appEnv(
+      ref: Ref[FileSystemState]): ZLayer.NoDeps[Throwable, ZioApp.AppEnv] =
     TestReadParquet(ref) ++
       TestReadCsv(ref) ++
       TestWriteParquet(ref) ++
       TestWriteCsv(ref) ++
       (testSessionBuilder >>> sparkSessionZLayer)
 
-  val expectOutput = Map(
+  val expectOutput: Map[String, File] = Map(
     "/tmp/zio-test.parquet" -> File(
       List(Person("Michael", 18, "Student"), Person("Peter", 38, "Chef")),
       FileType.Parquet
@@ -53,7 +54,7 @@ object ZioAppSpec extends DefaultRunnableSpec {
     )
   )
 
-  val expectConsoleOutput = Vector(
+  val expectConsoleOutput: Vector[String] = Vector(
     "Testing......\n",
     "Creating Dataset......\n",
     "Writing parquet to /tmp/zio-test.parquet......\n",
