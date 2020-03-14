@@ -1,7 +1,7 @@
 package example.write
 
 import org.apache.spark.sql.{Dataset, SaveMode, SparkSession}
-import zio._
+import zio.{Layer, Task, ZLayer, ZIO}
 
 object WriteCsv {
 
@@ -13,7 +13,7 @@ object WriteCsv {
     ): Task[Unit]
   }
 
-  val live: ZLayer.NoDeps[Nothing, WriteCsv] = ZLayer.succeed(
+  val live: Layer[Nothing, WriteCsv] = ZLayer.succeed(
     new Service {
       def writeCsv[A](
           spark: SparkSession,

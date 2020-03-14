@@ -25,7 +25,7 @@ object ZioApp extends App {
       (SparkSessionBuilder.live >>> sparkSessionZLayer)
 
   case class Person(name: String, age: Int, job: String) {
-    def toPersonSummary = PersonSummary(name, age)
+    def toPersonSummary: PersonSummary = PersonSummary(name, age)
   }
 
   case class PersonSummary(name: String, age: Int)

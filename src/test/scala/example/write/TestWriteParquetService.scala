@@ -1,7 +1,7 @@
 package example.write
 
 import org.apache.spark.sql.{Dataset, SparkSession}
-import zio._
+import zio.{Layer, Ref, Task, ZLayer}
 
 import example.FileSystemState
 
@@ -22,6 +22,6 @@ final case class TestWriteParquetService(ref: Ref[FileSystemState])
 object TestWriteParquet {
   def apply(
       ref: Ref[FileSystemState]
-  ): ZLayer.NoDeps[Nothing, WriteParquet] =
+  ): Layer[Nothing, WriteParquet] =
     ZLayer.succeed(TestWriteParquetService(ref))
 }

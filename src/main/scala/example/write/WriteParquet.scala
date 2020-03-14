@@ -1,7 +1,7 @@
 package example.write
 
 import org.apache.spark.sql.{Dataset, SaveMode, SparkSession}
-import zio._
+import zio.{Layer, Task, ZLayer, ZIO}
 
 object WriteParquet {
 
@@ -13,7 +13,7 @@ object WriteParquet {
     ): Task[Unit]
   }
 
-  val live: ZLayer.NoDeps[Nothing, WriteParquet] = ZLayer.succeed(
+  val live: Layer[Nothing, WriteParquet] = ZLayer.succeed(
     new Service {
       def writeParquet[A](
           spark: SparkSession,

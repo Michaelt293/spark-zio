@@ -1,7 +1,7 @@
 package example
 
 import org.apache.spark.sql.SparkSession
-import zio._
+import zio.{Has, RIO, ZIO, ZLayer, ZManaged}
 
 package object spark {
 
@@ -12,10 +12,11 @@ package object spark {
     : ZLayer[SparkSessionBuilder, Throwable, AppSparkSession] =
     ZLayer.fromManaged {
       ZManaged.make {
-        ZIO.access[SparkSessionBuilder](_.get).flatMap { service =>
-          Task.effect(service.sparkSessionBuilder.getOrCreate())
+        ZIO.access[SparkSessionBuilder](_.get).flatMap {
+          service: SparkSessionBuilder.Service =>
+            ZIO.effect(service.sparkSessionBuilder.getOrCreate())
         }
-      }(sparkSession => Task.succeed(sparkSession.stop()))
+      }(sparkSession => ZIO.succeed(sparkSession.stop()))
     }
 
   val sparkSession: RIO[AppSparkSession, SparkSession] =

@@ -3,7 +3,7 @@ package example.read
 import scala.reflect.runtime.universe.TypeTag
 
 import org.apache.spark.sql.{Dataset, SparkSession}
-import zio._
+import zio.{Layer, Ref, Task, ZLayer}
 
 import example.FileSystemState
 
@@ -19,6 +19,6 @@ final case class TestReadCsvService(ref: Ref[FileSystemState])
 object TestReadCsv {
   def apply(
       ref: Ref[FileSystemState]
-  ): ZLayer.NoDeps[Nothing, ReadCsv] =
+  ): Layer[Nothing, ReadCsv] =
     ZLayer.succeed(TestReadCsvService(ref))
 }
